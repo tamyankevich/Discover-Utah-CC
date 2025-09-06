@@ -8,8 +8,10 @@ function animateMenuReveal() {
   
   if (!navOuter || !navWrapper || !navContent) return;
   
-  // Add active class
+  // Add active classes
   navOuter.classList.add('is-active');
+  navWrapper.classList.add('is-active');
+  
   
   // Get all child elements from nav content for stagger animation
   const navElements = Array.from(navContent.children);
@@ -21,25 +23,30 @@ function animateMenuReveal() {
     y: 30
   });
   
-  navContent.classList.remove('u-hide')
+//   navContent.classList.remove('u-hide')
   // Create timeline
   const tl = gsap.timeline();
   
   // Animate nav wrapper height
-  tl.to(navWrapper, {
-    height: '100%',
-    duration: 0.8,
-    ease: 'power2.out'
-  })
   
+  tl.to(navWrapper, {
+        height: '100%',
+        duration: 0.8,
+        ease: 'power2.out'
+    })
+    .to(navContent, {
+        height: '75%',
+        duration: 0.4, 
+        ease: 'power2.out'
+    })
   // Stagger animate nav content elements
-  .to(navElements, {
-    opacity: 1,
-    y: 0,
-    duration: 0.6,
-    stagger: 0.15,
-    ease: 'power1.out'
-  }); 
+    .to(navElements, {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        stagger: 0.15,
+        ease: 'power1.out'
+    }); 
 }
 
 // Menu hide animation

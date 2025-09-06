@@ -47,7 +47,7 @@ function animateMenuReveal() {
     
     // Calculate responsive height
     function getNavContentHeight() {
-        if (window.innerWidth <= 479) return '90%';
+        if (window.innerWidth <= 479) return '80%';
         if (window.innerWidth <= 767) return '85%';
         return '75%';
     }

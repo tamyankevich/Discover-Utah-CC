@@ -9,27 +9,62 @@ let showcaseTimeline = gsap.timeline({
   }
 })
 
-showcaseTimeline
-  .from('.frame__outer', {scale:0.75, opacity: 0})
+showcaseTimeline.from('.frame__outer', {scale:0.75, opacity: 0});
 
 //Showcase UI interactions
 //Minimize controller
 document.addEventListener('DOMContentLoaded', function(){
   const minButton = document.querySelector('#minimize');
-  const controller = document.querySelector('.ui-listings-controller__wrapper');
+  const controller = document.querySelectorAll('.ui-listings-controller__wrapper');
   const gradient = document.querySelector('#ui-gradient');
   const plus = document.querySelector('.icon-plus');
 
   let clickIndex = 0
 
+  // Function to scroll active item into view when minimized
+  function scrollActiveItemIntoView() {
+    // Find the currently active controller pane
+    const activeControllerPane = document.querySelector('.ui-listings-controller__container .w-tab-pane.w--tab-active');
+    if (!activeControllerPane) return;
+    
+    // Find the active listing item in the current pane
+    const activeListingItem = activeControllerPane.querySelector('[listing-id].is-active');
+    if (!activeListingItem) return;
+    
+    // Find the .ui-listings-controller__wrapper inside the active pane
+    const scrollableWrapper = activeControllerPane.querySelector('.ui-listings-controller__wrapper');
+    
+    if (scrollableWrapper) {
+      // Scroll to show the active item at the top of the 3rem visible area
+      scrollableWrapper.scrollTo({
+        top: activeListingItem.offsetTop,
+        behavior: 'smooth'
+      });
+      
+      console.log('Scrolling active item into view:', activeListingItem.getAttribute('listing-id'));
+    } else {
+      console.log('No .ui-listings-controller__wrapper found in active pane');
+    }
+  }
+
   minButton.addEventListener('click', function() {
     if(clickIndex === 0) {
-      controller.classList.add('is-mini')
+      controller.forEach(controller => {
+        controller.classList.add('is-mini')
+      })
       gradient.classList.add('u-d-none')
       plus.classList.add('is-active')
+      
+      // Scroll active item into view when minimizing
+      setTimeout(() => {
+        scrollActiveItemIntoView();
+      }, 50); // Small delay to ensure CSS transition starts
+      
       clickIndex = 1
     } else if(clickIndex === 1) {
-      controller.classList.remove('is-mini')
+      controller.forEach(controller => {
+        controller.classList.remove('is-mini')
+      })
       gradient.classList.remove('u-d-none')
       plus.classList.remove('is-active')
       clickIndex = 0
@@ -41,9 +76,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
 //Filter by state
 document.addEventListener('DOMContentLoaded', function(){
-  const defaultTabs = document.querySelectorAll('[tab-menu-id]');
   const stylizedTabs = document.querySelectorAll('[tab-stylized-id]');
-  const controllerTabs = document.querySelectorAll('[tab-controller-id]');
 
 
   stylizedTabs.forEach(tab => {tab.classList.remove('is-active')})
@@ -66,37 +99,91 @@ document.addEventListener('DOMContentLoaded', function(){
         // Trigger click on the default tab
         matchingDefaultTab.click();
         matchingControllerTab.click();
+        
+        // Reinitialize controller listeners for the newly active state
+        // Use a longer delay to ensure Webflow's tab transition completes
+        setTimeout(() => {
+          initializeControllersForActiveState();
+          initializeGalleryForActiveState();
+        }, 350);
       }
     });
   });
 })
 
-//Properties collection (outer layer)
-document.addEventListener('DOMContentLoaded', function() {
-  console.log("showcase script loaded")
-  const listingsController = document.querySelectorAll('[listing-id]');
-  const showcaseItems = document.querySelectorAll('[showcase-id]');
-  const scrollContainer = document.querySelector('.listings-visuals__list');
+// Function to initialize controllers for the currently active state
+function initializeControllersForActiveState() {
+  console.log('Initializing controllers for active state...');
   
-  listingsController[0].classList.add('is-active');
+  // Wait a bit more and double-check that elements are ready
+  const activeControllerPane = document.querySelector('.ui-listings-controller__container .w-tab-pane.w--tab-active');
+  if (!activeControllerPane) {
+    console.log('No active controller pane found, retrying...');
+    setTimeout(initializeControllersForActiveState, 150);
+    return;
+  }
   
+  const listingsController = activeControllerPane.querySelectorAll('[listing-id]');
+  if (listingsController.length === 0) {
+    console.log('No listing controllers found, retrying...');
+    setTimeout(initializeControllersForActiveState, 150);
+    return;
+  }
+  
+  // Find the corresponding active showcase tab content
+  const activeShowcasePane = document.querySelector('.showcase-ui__wrapper .showcase-tab__content.w--tab-active');
+  const showcaseItems = activeShowcasePane ? activeShowcasePane.querySelectorAll('[showcase-id]') : [];
+  const scrollContainer = activeShowcasePane ? activeShowcasePane.querySelector('.listings-visuals__list') : null;
+  
+  console.log(`Found ${listingsController.length} controllers and ${showcaseItems.length} showcase items`);
+  
+  // Set first item as active if none are active
+  const hasActiveItem = Array.from(listingsController).some(item => item.classList.contains('is-active'));
+  if (!hasActiveItem && listingsController.length > 0) {
+    listingsController[0].classList.add('is-active');
+  }
+  
+  // Clear existing click handlers by removing and re-adding the event listeners
   listingsController.forEach(listingItem => {
-    listingItem.addEventListener('click', function() {
+    // Remove existing data attribute that might indicate listeners are attached
+    listingItem.removeAttribute('data-initialized');
+    
+    // Clone and replace to remove all event listeners
+    const clonedItem = listingItem.cloneNode(true);
+    listingItem.parentNode.replaceChild(clonedItem, listingItem);
+  });
+  
+  // Re-query after cloning
+  const newListingsController = activeControllerPane.querySelectorAll('[listing-id]');
+  
+  newListingsController.forEach(listingItem => {
+    // Mark as initialized to avoid double-initialization
+    listingItem.setAttribute('data-initialized', 'true');
+    
+    listingItem.addEventListener('click', function(e) {
+      e.preventDefault();
       const listingId = this.getAttribute('listing-id');
-      console.log(`logging listing-Id ${listingId}`);
+      console.log(`Clicking listing controller: ${listingId}`);
       
       // Remove is-active from all items first
-      listingsController.forEach(item => item.classList.remove("is-active"));
+      newListingsController.forEach(item => item.classList.remove("is-active"));
       // Then add is-active to clicked item
-      listingItem.classList.add("is-active");
+      this.classList.add("is-active");
+
+      // If controller is minimized, scroll this item into view
+      const activeControllerPane = document.querySelector('.ui-listings-controller__container .w-tab-pane.w--tab-active');
+      const scrollableWrapper = activeControllerPane ? activeControllerPane.querySelector('.ui-listings-controller__wrapper') : null;
       
+      if (scrollableWrapper && scrollableWrapper.classList.contains('is-mini')) {
+        scrollableWrapper.scrollTo({
+          top: this.offsetTop,
+          behavior: 'smooth'
+        });
+      }
 
       showcaseItems.forEach(showcaseItem => {
         const showcaseId = showcaseItem.getAttribute('showcase-id')
         if (showcaseId === listingId) {
-          // showcaseItems.forEach(item => item.classList.remove('active'));
-          // showcaseItem.classList.add('active');
-          
           // Scroll the active showcase item to the top of the container
           if (scrollContainer) {
             scrollContainer.scrollTo({
@@ -105,23 +192,45 @@ document.addEventListener('DOMContentLoaded', function() {
             });
           }
           
-          console.log(`calling ${showcaseId}`)
+          console.log(`Successfully scrolled to: ${showcaseId}`)
         }
       });
-      
-      // listingsController.forEach(item => item.classList.remove('active'));
-      // this.classList.add('active');
     });
   });
+  
+  console.log('Controller initialization complete');
+}
+
+//Properties collection (outer layer)
+document.addEventListener('DOMContentLoaded', function() {
+  console.log("showcase script loaded")
+  initializeControllersForActiveState();
 });
 
-//Property images gallery (nested layer)
-document.addEventListener('DOMContentLoaded', function() {
-  const listingsController = document.querySelectorAll('[listing-id]');
-  let galleryAutoplayTimelines = new Map(); // Store autoplay timelines for each gallery
+// Global variable to store gallery timelines across state switches
+let galleryAutoplayTimelines = new Map();
+
+// Function to initialize gallery for the currently active state
+function initializeGalleryForActiveState() {
+  console.log('Initializing gallery for active state...');
+  
+  // Find the active controller tab pane
+  const activeControllerPane = document.querySelector('.ui-listings-controller__container .w-tab-pane.w--tab-active');
+  if (!activeControllerPane) {
+    console.log('No active controller pane found for gallery, retrying...');
+    setTimeout(initializeGalleryForActiveState, 150);
+    return;
+  }
+  
+  const listingsController = activeControllerPane.querySelectorAll('[listing-id]');
+  if (listingsController.length === 0) {
+    console.log('No listing controllers found for gallery, retrying...');
+    setTimeout(initializeGalleryForActiveState, 150);
+    return;
+  }
   
   // Gallery autoplay function
-  function createGalleryAutoplay(galleryTrack, bullets, listingId) {
+  function createGalleryAutoplay(galleryTrack, bullets) {
     if (!galleryTrack || bullets.length === 0) return null;
     
     let currentIndex = 0;
@@ -164,8 +273,11 @@ document.addEventListener('DOMContentLoaded', function() {
       if (timeline) timeline.pause();
     });
     
-    // Find active listing
-    const activeListing = document.querySelector('[listing-id].is-active');
+    // Find active listing in current state
+    const activeControllerPane = document.querySelector('.ui-listings-controller__container .w-tab-pane.w--tab-active');
+    if (!activeControllerPane) return;
+    
+    const activeListing = activeControllerPane.querySelector('[listing-id].is-active');
     if (activeListing) {
       const activeListingId = activeListing.getAttribute('listing-id');
       const activeTimeline = galleryAutoplayTimelines.get(activeListingId);
@@ -175,12 +287,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  // Find the corresponding active showcase tab content
+  const activeShowcasePane = document.querySelector('.showcase-ui__wrapper .showcase-tab__content.w--tab-active');
+  
   listingsController.forEach(listingItem => {
     const listingId = listingItem.getAttribute('listing-id');
     const photosControllerWrapper = listingItem.querySelector('.listing-item__nav .photos-controller__wrapper');
 
-    // Find the corresponding showcase item
-    const showcaseItem = document.querySelector(`[showcase-id="${listingId}"]`);
+    // Find the corresponding showcase item in the active showcase pane
+    const showcaseItem = activeShowcasePane ? activeShowcasePane.querySelector(`[showcase-id="${listingId}"]`) : null;
 
     if (showcaseItem && photosControllerWrapper) {
       const galleryTrack = showcaseItem.querySelector('.gallery__track');
@@ -209,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const bullets = photosControllerWrapper.querySelectorAll('.carousel-nav-bullet');
         
         // Create autoplay timeline for this gallery
-        const autoplayTimeline = createGalleryAutoplay(galleryTrack, bullets, listingId);
+        const autoplayTimeline = createGalleryAutoplay(galleryTrack, bullets);
         if (autoplayTimeline) {
           galleryAutoplayTimelines.set(listingId, autoplayTimeline);
         }
@@ -261,4 +376,9 @@ document.addEventListener('DOMContentLoaded', function() {
       gsap.delayedCall(0.1, startAutoplayForActiveGallery);
     });
   });
+}
+
+//Property images gallery (nested layer)
+document.addEventListener('DOMContentLoaded', function() {
+  initializeGalleryForActiveState();
 });
